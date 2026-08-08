@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Piyasa - Kripto Takip Platformu{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% if query %}
+            <h2>"<span class="text-info">{{ query }}</span>" için Arama Sonuçları</h2>
+            <p class="text-muted">İlk 50 coin içerisinde arama yapıldı.</p>
+        {% else %}
+            <h2>Canlı Kripto Para Piyasası</h2>
+            <p class="text-muted">Piyasa değerine göre en büyük ilk 50 coin.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
+</div>
+{% endif %}
+
+{% if coins %}
+<div class="table-responsive shadow-sm rounded border border-secondary">
+    <table class="table table-dark table-hover mb-0 align-middle">
+        <thead>
+            <tr>
+                <th scope="col" class="text-center">#</th>
+                <th scope="col">Coin</th>
+                <th scope="col" class="text-end">Fiyat</th>
+                <th scope="col" class="text-end">24s Değişim</th>
+                <th scope="col" class="text-end d-none d-md-table-cell">Piyasa Değeri</th>
+                <th scope="col" class="text-end d-none d-lg-table-cell">Hacim (24s)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for coin in coins %}
+            <tr style="cursor: pointer;" onclick="window.location.href='{{ url_for('coin_detail', coin_id=coin.id) }}'">
+                <td class="text-center text-muted fw-bold">{{ coin.market_cap_rank }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <img src="{{ coin.image }}" alt="{{ coin.name }}" class="coin-icon me-3">
+                        <div>
+                            <span class="fw-bold">{{ coin.name }}</span>
+                            <span class="badge bg-secondary ms-1 text-uppercase">{{ coin.symbol }}</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end fw-bold">{{ coin.current_price | currency }}</td>
+                
+                <td class="text-end fw-bold">
+                    {% if coin.price_change_percentage_24h is not none %}
+                        {% if coin.price_change_percentage_24h >= 0 %}
+                            <span class="text-positive"><i class="bi bi-caret-up-fill"></i> {{ "%.2f"|format(coin.price_change_percentage_24h) }}%</span>
+                        {% else %}
+                            <span class="text-negative"><i class="bi bi-caret-down-fill"></i> {{ "%.2f"|format(coin.price_change_percentage_24h|abs) }}%</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                
+                <td class="text-end text-muted d-none d-md-table-cell">{{ coin.market_cap | currency }}</td>
+                <td class="text-end text-muted d-none d-lg-table-cell">{{ coin.total_volume | currency }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif not error %}
+<div class="alert alert-info">
+    Aradığınız kriterlere uygun coin bulunamadı.
+</div>
+{% endif %}
+{% endblock %}

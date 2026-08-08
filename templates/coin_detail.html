@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ coin.name if coin else 'Hata' }} Detayları - Kripto Takip Platformu{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+<a href="{{ url_for('index') }}" class="btn btn-outline-light mt-3"><i class="bi bi-arrow-left"></i> Piyasaya Dön</a>
+{% elif coin %}
+<div class="row mt-4">
+    <div class="col-md-4 mb-4">
+        <div class="card p-4 text-center shadow">
+            {% if coin.image and coin.image.large %}
+                <img src="{{ coin.image.large }}" class="img-fluid mx-auto mb-3" alt="{{ coin.name }}" style="max-width: 150px;">
+            {% endif %}
+            <h1 class="fw-bold mb-0">{{ coin.name }}</h1>
+            <h4 class="text-muted text-uppercase">{{ coin.symbol }}</h4>
+            
+            {% set current_price = coin.market_data.current_price.usd %}
+            {% set price_change = coin.market_data.price_change_percentage_24h %}
+            
+            <div class="mt-4">
+                <p class="fs-5 mb-1 text-muted">Güncel Fiyat (USD)</p>
+                <h2 class="fw-bold">{{ current_price | currency }}</h2>
+                
+                {% if price_change %}
+                <div class="fs-5 fw-bold mt-2">
+                    {% if price_change >= 0 %}
+                        <span class="text-positive"><i class="bi bi-caret-up-fill"></i> {{ "%.2f"|format(price_change) }}% (24s)</span>
+                    {% else %}
+                        <span class="text-negative"><i class="bi bi-caret-down-fill"></i> {{ "%.2f"|format(price_change) }}% (24s)</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card p-4 shadow h-100">
+            <h3 class="border-bottom border-secondary pb-2 mb-4">Piyasa Verileri</h3>
+            
+            <div class="row g-4">
+                <div class="col-sm-6">
+                    <p class="text-muted mb-1">Piyasa Değeri (Market Cap)</p>
+                    <h4 class="fw-bold">{{ coin.market_data.market_cap.usd | currency }}</h4>
+                </div>
+                <div class="col-sm-6">
+                    <p class="text-muted mb-1">24 Saatlik Hacim</p>
+                    <h4 class="fw-bold">{{ coin.market_data.total_volume.usd | currency }}</h4>
+                </div>
+                <div class="col-sm-6">
+                    <p class="text-muted mb-1">Dolaşımdaki Arz</p>
+                    <h5 class="fw-bold">{{ "{:,.0f}".format(coin.market_data.circulating_supply) if coin.market_data.circulating_supply else "Bilinmiyor" }} <span class="text-uppercase fs-6">{{ coin.symbol }}</span></h5>
+                </div>
+                <div class="col-sm-6">
+                    <p class="text-muted mb-1">Maksimum Arz</p>
+                    <h5 class="fw-bold">{{ "{:,.0f}".format(coin.market_data.max_supply) if coin.market_data.max_supply else "Sınırsız/Bilinmiyor" }}</h5>
+                </div>
+                
+                <div class="col-sm-6 mt-4">
+                    <div class="p-3 border border-secondary rounded">
+                        <p class="text-muted mb-1">Tüm Zamanların En Yükseği (ATH)</p>
+                        <h5 class="fw-bold text-positive">{{ coin.market_data.ath.usd | currency }}</h5>
+                    </div>
+                </div>
+                <div class="col-sm-6 mt-4">
+                    <div class="p-3 border border-secondary rounded">
+                        <p class="text-muted mb-1">Tüm Zamanların En Düşüğü (ATL)</p>
+                        <h5 class="fw-bold text-negative">{{ coin.market_data.atl.usd | currency }}</h5>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-3 border-top border-secondary">
+                <a href="{{ url_for('index') }}" class="btn btn-outline-info"><i class="bi bi-arrow-left"></i> Piyasaya Dön</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if coin.description and coin.description.en %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card p-4 shadow mb-4">
+            <h4 class="border-bottom border-secondary pb-2 mb-3">Hakkında</h4>
+            <div class="text-muted" style="line-height: 1.6;">
+                {{ coin.description.en | safe }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Grafik Alanı -->
+<div class="row mt-2">
+    <div class="col-12">
+        <div class="card p-4 shadow">
+            <h4 class="border-bottom border-secondary pb-2 mb-4">7 Günlük Fiyat Grafiği (USD)</h4>
+            {% if chart_data %}
+            <div style="height: 400px; width: 100%;">
+                <canvas id="priceChart"></canvas>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary text-center">
+                Grafik verisi şu anda yüklenemiyor.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if chart_data %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        
+        // Jinja2'den gelen verileri JavaScript'e aktarıyoruz
+        const labels = {{ chart_labels | tojson }};
+        const data = {{ chart_data | tojson }};
+        
+        // Kripto fiyat değişimine göre renk belirleme (son fiyat - ilk fiyat)
+        const isPositive = data[data.length - 1] >= data[0];
+        const lineColor = isPositive ? '#2ea043' : '#f85149';
+        const bgColor = isPositive ? 'rgba(46, 160, 67, 0.1)' : 'rgba(248, 81, 73, 0.1)';
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fiyat (USD)',
+                    data: data,
+                    borderColor: lineColor,
+                    backgroundColor: bgColor,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#30363d' },
+                        ticks: { color: '#8b949e', maxTicksLimit: 7 }
+                    },
+                    y: {
+                        grid: { color: '#30363d' },
+                        ticks: {
+                            color: '#8b949e',
+                            callback: function(value, index, values) {
+                                if (value >= 1000) { return '$' + (value/1000).toFixed(1) + 'k'; }
+                                return '$' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+
+{% endif %}
+{% endblock %}
